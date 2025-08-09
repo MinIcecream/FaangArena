@@ -1,0 +1,22 @@
+{
+  "name": "faangarena-backend",
+  "version": "1.0.0",
+  "description": "Backend for FAANGArena - Software Company Rankings",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.864.0",
+    "@aws-sdk/lib-dynamodb": "^3.864.0"
+  },
+  "keywords": [
+    "tech",
+    "ranking",
+    "companies",
+    "arena"
+  ],
+  "author": "TechArena Team",
+  "license": "MIT"
+}
