@@ -122,13 +122,10 @@ class TechArena {
     }
 
     // Animate company change - keeps winning company on same side
-    async animateCompanyChange(losingSide, winningCompany) {
+    async animateCompanyChange(losingSide, winner) {
         const losingCard = document.getElementById(`company${losingSide}`);
-        const winningSide = losingSide === 1 ? 2 : 1;
-        
         // Animate out the losing company
         losingCard.classList.add('slide-out');
-        
         setTimeout(async () => {
             try {
                 // Get a new battle from API
@@ -137,24 +134,19 @@ class TechArena {
                     throw new Error('Failed to get new battle');
                 }
                 const newCompanies = await response.json();
-                
-                // Find the company that's not the winning one
-                const newOpponent = newCompanies.find(c => c.id !== winningCompany.id);
-                
+                // Find a new opponent that is not the winner
+                const newOpponent = newCompanies.find(c => c.id !== winner.id);
                 if (!newOpponent) {
                     throw new Error('No suitable opponent found');
                 }
-                
-                // Update battle state - keep winning company on same side
-                if (winningSide === 1) {
-                    this.currentBattle = { company1: winningCompany, company2: newOpponent };
+                // Update battle state - keep winner on the same side
+                if (losingSide === 1) {
+                    this.currentBattle = { company1: newOpponent, company2: winner };
                 } else {
-                    this.currentBattle = { company1: newOpponent, company2: winningCompany };
+                    this.currentBattle = { company1: winner, company2: newOpponent };
                 }
-                
                 // Update display with animation
                 this.updateBattleDisplayWithAnimation(losingSide);
-                
                 // Remove animation classes
                 setTimeout(() => {
                     losingCard.classList.remove('slide-out');
@@ -236,9 +228,9 @@ class TechArena {
             return;
         }
 
-        const companyIndex = parseInt(e.target.dataset.company);
-        const votedCompany = companyIndex === 1 ? this.currentBattle.company1 : this.currentBattle.company2;
-        const otherCompany = companyIndex === 1 ? this.currentBattle.company2 : this.currentBattle.company1;
+        const companyIndex = parseInt(e.target.dataset.company); // 1 or 2
+        const winner = companyIndex === 1 ? this.currentBattle.company1 : this.currentBattle.company2;
+        const loserSide = companyIndex === 1 ? 2 : 1;
 
         // Update last vote time
         this.lastVoteTime = now;
@@ -249,7 +241,7 @@ class TechArena {
         setTimeout(() => card.classList.remove('vote-success'), 600);
 
         // Optimistically animate out the losing company and replace with new opponent
-        this.animateCompanyChange(companyIndex === 1 ? 2 : 1, votedCompany);
+        this.animateCompanyChange(loserSide, winner);
 
         // Submit vote to API in background
         (async () => {
@@ -260,8 +252,8 @@ class TechArena {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        winnerId: votedCompany.id,
-                        loserId: otherCompany.id
+                        winnerId: winner.id,
+                        loserId: loserSide === 1 ? this.currentBattle.company1.id : this.currentBattle.company2.id
                     })
                 });
 
@@ -273,8 +265,12 @@ class TechArena {
 
                 const result = await response.json();
                 // Update local company scores
-                votedCompany.score = result.winnerScore;
-                otherCompany.score = result.loserScore;
+                winner.score = result.winnerScore;
+                if (loserSide === 1) {
+                    this.currentBattle.company1.score = result.loserScore;
+                } else {
+                    this.currentBattle.company2.score = result.loserScore;
+                }
                 // Update leaderboard
                 this.updateLeaderboard();
             } catch (error) {
