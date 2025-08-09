@@ -1,81 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FAANGArena - Software Company Rankings</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <meta charset="UTF-8" />
+  <title>FAANGArena</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Optional: put your absolute API base here to avoid editing JS -->
+  <script>
+    window.__API_BASE__ = "https://4lxrchbbaz6o3kpgyczrx7kplm0wnqno.lambda-url.us-east-1.on.aws/api";
+  </script>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1><i class="fas fa-trophy"></i> FAANGArena</h1>
-            <p>Which software company is more cracked?</p>
-            <nav>
-                <button id="leaderboardBtn" class="nav-btn active">
-                    <i class="fas fa-list-ol"></i> Leaderboard
-                </button>
-                <button id="battleBtn" class="nav-btn">
-                    <i class="fas fa-sword-cross"></i> Battle
-                </button>
-            </nav>
-        </header>
+  <nav>
+    <button id="leaderboardBtn" class="nav-btn">Leaderboard</button>
+    <button id="battleBtn" class="nav-btn active">Battle</button>
+    <button id="shuffleBtn">Shuffle</button>
+  </nav>
 
-        <main>
-            <!-- Leaderboard View -->
-            <div id="leaderboardView" class="view active">
-                <div class="leaderboard-header">
-                    <h2>🏆 Company Rankings</h2>
-                </div>
-                <div id="leaderboardList" class="leaderboard-list">
-                    <!-- Companies will be populated here -->
-                </div>
-            </div>
+  <main>
+    <section id="battleView" class="view active">
+      <div id="company1" class="card">
+        <img id="logo1" class="logo" alt="logo 1" />
+        <div id="name1" class="name"></div>
+        <div id="score1" class="score"></div>
+        <button class="vote-btn" data-company="1">Vote</button>
+      </div>
 
-            <!-- Battle View -->
-            <div id="battleView" class="view">
-                <div class="battle-header">
-                    <h2>⚔️ Which company is more cracked?</h2>
-                    <button id="shuffleBtn" class="btn btn-secondary">
-                        <i class="fas fa-random"></i> Shuffle
-                    </button>
-                </div>
-                <div class="battle-container">
-                    <div class="company-card" id="company1">
-                        <div class="company-logo">
-                            <img id="logo1" src="" alt="Company 1">
-                        </div>
-                        <h3 id="name1"></h3>
-                        <p class="score" id="score1"></p>
-                        <button class="vote-btn" data-company="1">
-                            <i class="fas fa-thumbs-up"></i> Vote
-                        </button>
-                    </div>
-                    
-                    <div class="vs-divider">
-                        <span>VS</span>
-                    </div>
-                    
-                    <div class="company-card" id="company2">
-                        <div class="company-logo">
-                            <img id="logo2" src="" alt="Company 2">
-                        </div>
-                        <h3 id="name2"></h3>
-                        <p class="score" id="score2"></p>
-                        <button class="vote-btn" data-company="2">
-                            <i class="fas fa-thumbs-up"></i> Vote
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </main>
+      <div id="company2" class="card">
+        <img id="logo2" class="logo" alt="logo 2" />
+        <div id="name2" class="name"></div>
+        <div id="score2" class="score"></div>
+        <button class="vote-btn" data-company="2">Vote</button>
+      </div>
+    </section>
 
+    <section id="leaderboardView" class="view">
+      <div id="leaderboardList"></div>
+    </section>
+  </main>
 
-    </div>
-
-    <script src="script.js"></script>
+  <script src="./script.js" defer></script>
 </body>
-</html> 
+</html>

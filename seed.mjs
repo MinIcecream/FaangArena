@@ -1,14 +1,14 @@
-// seed.mjs — numeric SK (0) for company items
+// seed.mjs — inserts companies with sk: 0
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { readFile } from "fs/promises";
 
 const REGION = process.env.AWS_REGION || "us-east-1";
-const TABLE  = process.env.TABLE_NAME || "Arena-faangarena-v2"; // set via env to be safe
+const TABLE  = process.env.TABLE_NAME || "Arena-faangarena-v2"; // or read from stack output
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
 
-// Load companies-data.json from the same folder
+// load companies-data.json from same folder
 const companies = JSON.parse(
   await readFile(new URL("./companies-data.json", import.meta.url), "utf8")
 );
@@ -19,7 +19,7 @@ async function seed() {
     const id = c.name;
     const item = {
       pk: `COMPANY#${id}`,
-      sk: 0, // numeric SK
+      sk: 0,
       id,
       name: c.name,
       logo: c.logo,
@@ -30,7 +30,6 @@ async function seed() {
       gsi2pk: "COMPANY",
       gsi2sk: id
     };
-
     try {
       await ddb.send(new PutCommand({
         TableName: TABLE,

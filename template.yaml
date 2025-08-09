@@ -12,12 +12,12 @@ Resources:
   ArenaTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "Arena-${AWS::StackName}"   # unique per stack
+      TableName: !Sub "Arena-${AWS::StackName}"   # unique per stack (safe updates)
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: pk
+        - AttributeName: pk     # HASH
           AttributeType: S
-        - AttributeName: sk
+        - AttributeName: sk     # RANGE
           AttributeType: N
         - AttributeName: gsi1pk
           AttributeType: S
@@ -78,8 +78,10 @@ Resources:
       FunctionUrlConfig:
         AuthType: NONE
         Cors:
-          AllowOrigins: ['*']
-          AllowMethods: [GET, POST]   # no OPTIONS here
+          # 🔒 Use your Vercel domain here (exactly one origin)
+          AllowOrigins:
+            - "https://faang-arena.vercel.app"
+          AllowMethods: [GET, POST]
           AllowHeaders: ['*']
 
 Outputs:
