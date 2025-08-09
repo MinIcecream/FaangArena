@@ -214,62 +214,60 @@ class TechArena {
         logo.src = company.logo;
     }
 
-    // Handle voting with API
     async handleVote(e) {
-        // Check cooldown
         const now = Date.now();
-        if (now - this.lastVoteTime < this.voteCooldown) {
-            return;
-        }
+        if (now - this.lastVoteTime < this.voteCooldown) return;
 
-        const companyIndex = parseInt(e.target.dataset.company);
+        const companyIndex = parseInt((e.currentTarget || e.target).dataset.company, 10);
         const votedCompany = companyIndex === 1 ? this.currentBattle.company1 : this.currentBattle.company2;
         const otherCompany = companyIndex === 1 ? this.currentBattle.company2 : this.currentBattle.company1;
 
-        // Update last vote time
         this.lastVoteTime = now;
 
-        // Show success animation
         const card = document.getElementById(`company${companyIndex}`);
         card.classList.add('vote-success');
         setTimeout(() => card.classList.remove('vote-success'), 600);
 
-        // Submit vote to API
         try {
             const response = await fetch(`${this.apiBase}/vote`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    winnerId: votedCompany.id,
-                    loserId: otherCompany.id
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ winnerId: votedCompany.id, loserId: otherCompany.id })
             });
-
-            if (!response.ok) {
-                // If vote fails, reload the battle to ensure consistency
-                await this.startNewBattle();
-                return;
+            if (!response.ok) { 
+                await this.startNewBattle(); 
+                return; 
             }
 
             const result = await response.json();
 
-            // Update local company scores
+            // Update scores & leaderboard
             votedCompany.score = result.winnerScore;
             otherCompany.score = result.loserScore;
-            // Update leaderboard
             this.updateLeaderboard();
 
-            // Replace only the losing side with server-provided nextOpponent
+            // Always fetch a fresh opponent from /battle
+            let nextOpponent = null;
+            try {
+                const r = await fetch(`${this.apiBase}/battle`);
+                if (r.ok) {
+                    const pair = await r.json();
+                    // pick the one that isn't the winner
+                    nextOpponent = pair.find(c => c.id !== votedCompany.id) || pair[0] || null;
+                }
+            } catch (err) {
+                console.error("Error fetching new opponent:", err);
+            }
+
             const losingSide = companyIndex === 1 ? 2 : 1;
-            await this.animateCompanyChange(losingSide, votedCompany, result.nextOpponent || null);
+            await this.animateCompanyChange(losingSide, votedCompany, nextOpponent);
 
         } catch (error) {
-            // On error, reload the battle
+            console.error("Vote failed:", error);
             await this.startNewBattle();
         }
     }
+
 
     // Shuffle battle
     async shuffleBattle() {
