@@ -3,7 +3,7 @@ class TechArena {
     constructor() {
         this.companies = [];
         this.currentBattle = { company1: null, company2: null };
-        this.apiBase = 'https://4lxrchbbaz6o3kpgyczrx7kplm0wnqno.lambda-url.us-east-1.on.aws/api';
+        this.apiBase = '/api';
         this.lastVoteTime = 0; // Track last vote time for cooldown
         this.voteCooldown = 1000; // 1 second cooldown in milliseconds
         
