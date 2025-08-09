@@ -16,7 +16,7 @@
     { "name": "Cisco", "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Cisco_logo_blue_2016.svg/800px-Cisco_logo_blue_2016.svg.png" },
     { "name": "GitHub", "logo": "https://img.icons8.com/?size=100&id=12599&format=png&color=000000" },
     { "name": "OpenAI", "logo": "https://img.icons8.com/?size=100&id=FBO05Dys9QCg&format=png&color=000000" },
-    { "name": "Spotify", "logo": "https://img.icons8.com/color/96/spotify.png" },
+    { "name": "Spotify", "logo": "https://img.icons8.com/?size=100&id=G9XXzb9XaEKX&format=png&color=000000" },
     { "name": "Uber", "logo": "https://img.icons8.com/?size=100&id=N1tTKPEhzeBm&format=png&color=000000" },
     { "name": "SpaceX", "logo": "https://cdn.freebiesupply.com/logos/thumbs/2x/spacex-logo.png" },
     { "name": "Neuralink", "logo": "https://yt3.googleusercontent.com/7wOL73n67xNCQv0EzhWcMOuKo85gOggUl2mO1Y4ohhX5OcXQitrm1CMvKwRhCJgzVU8sB7FZ=s900-c-k-c0x00ffffff-no-rj" },
@@ -36,7 +36,7 @@
     { "name": "Zoom", "logo": "https://img.icons8.com/color/96/zoom.png" },
     { "name": "Dropbox", "logo": "https://img.icons8.com/color/96/dropbox.png" },
     { "name": "Twilio", "logo": "https://img.icons8.com/?size=100&id=Kgi6oZhOS3Im&format=png&color=000000" },
-    { "name": "Stripe", "logo": "https://img.icons8.com/color/96/stripe.png" },
+    { "name": "Stripe", "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSZFgNCm9j7xOAEE7DfXCwvgm-Uqyla4ILe6A&s" },
     { "name": "Square", "logo": "https://img.icons8.com/color/96/square.png" },
     { "name": "PayPal", "logo": "https://img.icons8.com/color/96/paypal.png" },
     { "name": "Shopify", "logo": "https://img.icons8.com/color/96/shopify.png" },
@@ -62,6 +62,9 @@
     { "name": "Jane Street", "logo": "https://media.licdn.com/dms/image/sync/v2/D5627AQFsl9PBqp479Q/articleshare-shrink_800/B56ZeEgAqnHEAI-/0/1750274673929?e=2147483647&v=beta&t=6eG05YkrO5aWiLoPlDCExsBIJDtrZk7zfwhRug2-eaE" },
     { "name": "HRT", "logo": "https://upload.wikimedia.org/wikipedia/commons/3/3b/HRT_Primary_Logo_-_Full_Color.png" },
     { "name": "Citadel", "logo": "https://www.citadel.com/wp-content/uploads/2022/12/Citadel_Logo_File.jpg" },
-    { "name": "Bloomberg", "logo": "https://m.media-amazon.com/images/I/31Ja06sm51L.png" }
+    { "name": "Bloomberg", "logo": "https://m.media-amazon.com/images/I/31Ja06sm51L.png" },
+    { "name": "Capital One", "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSau0cpWWQBUME4-_nijhVTZFOPos0nF5_SrQ&s" },
+    { "name": "Roblox", "logo": "https://img.icons8.com/?size=100&id=97652&format=png&color=000000" }
+
   ]
   
