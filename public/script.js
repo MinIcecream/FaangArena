@@ -120,38 +120,35 @@ class TechArena {
             this.showNotification('Failed to start battle. Please try again.', 'error');
         }
     }
-
-    // Animate company change - winner stays; caller provides newOpponent
+        // Animate company change - winner stays; caller provides newOpponent
     async animateCompanyChange(losingSide, winningCompany, newOpponent) {
         const losingCard = document.getElementById(`company${losingSide}`);
         const winningSide = losingSide === 1 ? 2 : 1;
-        
+    
+        // If for some reason we didn't get an opponent, just stop (do NOT reset both)
+        if (!newOpponent) return;
+    
         // Animate out the losing company
         losingCard.classList.add('slide-out');
-        
+    
         setTimeout(() => {
-            if (!newOpponent) {
-                // Fallback if no opponent provided
-                this.startNewBattle();
-                return;
-            }
-
-            // Keep winner on same side; replace only the loser
-            if (winningSide === 1) {
-                this.currentBattle = { company1: winningCompany, company2: newOpponent };
-            } else {
-                this.currentBattle = { company1: newOpponent, company2: winningCompany };
-            }
-            
-            // Update display with animation
-            this.updateBattleDisplayWithAnimation(losingSide);
-            
-            // Remove animation classes
-            setTimeout(() => {
-                losingCard.classList.remove('slide-out');
-            }, 300);
+        // Keep winner on same side; replace only the loser
+        if (winningSide === 1) {
+            this.currentBattle = { company1: winningCompany, company2: newOpponent };
+        } else {
+            this.currentBattle = { company1: newOpponent, company2: winningCompany };
+        }
+    
+        // Update display with animation
+        this.updateBattleDisplayWithAnimation(losingSide);
+    
+        // Remove animation classes
+        setTimeout(() => {
+            losingCard.classList.remove('slide-out');
+        }, 300);
         }, 300);
     }
+  
 
     // Update battle display
     updateBattleDisplay() {
@@ -214,60 +211,64 @@ class TechArena {
         logo.src = company.logo;
     }
 
+    // Handle voting with API — winner stays, loser replaced
     async handleVote(e) {
         const now = Date.now();
         if (now - this.lastVoteTime < this.voteCooldown) return;
-
-        const companyIndex = parseInt((e.currentTarget || e.target).dataset.company, 10);
+    
+        // Always read the button's dataset
+        const btn = e.currentTarget || e.target;
+        const companyIndex = parseInt(btn.dataset.company, 10);
+    
         const votedCompany = companyIndex === 1 ? this.currentBattle.company1 : this.currentBattle.company2;
         const otherCompany = companyIndex === 1 ? this.currentBattle.company2 : this.currentBattle.company1;
-
+    
         this.lastVoteTime = now;
-
+    
         const card = document.getElementById(`company${companyIndex}`);
         card.classList.add('vote-success');
         setTimeout(() => card.classList.remove('vote-success'), 600);
-
+    
         try {
-            const response = await fetch(`${this.apiBase}/vote`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ winnerId: votedCompany.id, loserId: otherCompany.id })
-            });
-            if (!response.ok) { 
-                await this.startNewBattle(); 
-                return; 
+        const response = await fetch(`${this.apiBase}/vote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ winnerId: votedCompany.id, loserId: otherCompany.id })
+        });
+        if (!response.ok) {
+            // don't reshuffle both; just stop
+            return;
+        }
+    
+        const result = await response.json();
+    
+        // Update scores & leaderboard
+        votedCompany.score = result.winnerScore;
+        otherCompany.score = result.loserScore;
+        this.updateLeaderboard();
+    
+        // Fetch a fresh opponent; keep winner in place
+        let nextOpponent = null;
+        try {
+            const r = await fetch(`${this.apiBase}/battle`);
+            if (r.ok) {
+            const pair = await r.json();
+            // Pick any from the pair that isn't the winner
+            nextOpponent = pair.find(c => c.id !== votedCompany.id) || null;
+            // If both are different, we still pick one (first) to ensure a swap
+            if (!nextOpponent && pair.length) nextOpponent = pair[0];
             }
-
-            const result = await response.json();
-
-            // Update scores & leaderboard
-            votedCompany.score = result.winnerScore;
-            otherCompany.score = result.loserScore;
-            this.updateLeaderboard();
-
-            // Always fetch a fresh opponent from /battle
-            let nextOpponent = null;
-            try {
-                const r = await fetch(`${this.apiBase}/battle`);
-                if (r.ok) {
-                    const pair = await r.json();
-                    // pick the one that isn't the winner
-                    nextOpponent = pair.find(c => c.id !== votedCompany.id) || pair[0] || null;
-                }
-            } catch (err) {
-                console.error("Error fetching new opponent:", err);
-            }
-
-            const losingSide = companyIndex === 1 ? 2 : 1;
-            await this.animateCompanyChange(losingSide, votedCompany, nextOpponent);
-
+        } catch {}
+    
+        const losingSide = companyIndex === 1 ? 2 : 1;
+        await this.animateCompanyChange(losingSide, votedCompany, nextOpponent);
+    
         } catch (error) {
-            console.error("Vote failed:", error);
-            await this.startNewBattle();
+        // swallow; do not reset both
+        console.error("Vote failed:", error);
         }
     }
-
+  
 
     // Shuffle battle
     async shuffleBattle() {
