@@ -85,7 +85,7 @@ class TechArena {
                         <img src="${company.logo}" alt="${company.name}" class="logo" 
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                         <div class="logo-fallback" style="display: none;">
-                            <span>${company.name.charAt(0)}</span>
+                            <span>${(company.name || "").charAt(0)}</span>
                         </div>
                     </div>
                     <div class="info">

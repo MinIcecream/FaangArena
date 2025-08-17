@@ -12,7 +12,7 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const TABLE = process.env.TABLE_NAME || "Arena-faangarena-v2"; // overwritten by SAM env
 
 // Rate limit: device-based (or IP fallback)
-const RATE_LIMIT_MAX = 1000;                 // adjust as you like
+const RATE_LIMIT_MAX = 300;                 // adjust as you like
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 export const handler = async (event) => {
@@ -103,7 +103,7 @@ export const handler = async (event) => {
       const ws = winner.score ?? 500;
       const ls = loser.score ?? 500;
       const expectedWinner = 1 / (1 + Math.pow(10, (ls - ws) / 400));
-      const k = 32;
+      const k = 12;
       const change = Math.round(k * (1 - expectedWinner));
       const newWinner = Math.max(ws + change, 100);
       const newLoser  = Math.max(ls - Math.floor(change * 0.5), 100);
