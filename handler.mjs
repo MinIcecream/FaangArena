@@ -8,11 +8,12 @@ import {
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const TABLE = process.env.TABLE_NAME || "Arena-faangarena-v2"; // overwritten by SAM env
+const client = new DynamoDBClient({});
+const ddb = DynamoDBDocumentClient.from(client);
+const TABLE = process.env.TABLE_NAME || "Arena-faangarena-v2";
 
-// Rate limit: device-based (or IP fallback)
-const RATE_LIMIT_MAX = 300;                 // adjust as you like
+// Rate limit
+const RATE_LIMIT_MAX = 300;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 export const handler = async (event) => {
@@ -21,7 +22,7 @@ export const handler = async (event) => {
     const path = event.requestContext?.http?.path || event.path || "";
     const body = event.body ? JSON.parse(event.body) : {};
 
-    // GET /api/companies  (leaderboard via GSI1)
+    // -------- GET /api/companies --------
     if (method === "GET" && path.endsWith("/api/companies")) {
       const res = await ddb.send(
         new QueryCommand({
@@ -29,16 +30,16 @@ export const handler = async (event) => {
           IndexName: "GSI1",
           KeyConditionExpression: "gsi1pk = :lb",
           ExpressionAttributeValues: { ":lb": "LEADERBOARD" },
-          ScanIndexForward: false, // DESC by score
+          ScanIndexForward: false, // descending by score
           Limit: 200,
         })
       );
       return json(200, res.Items ?? []);
     }
 
-    // GET /api/battle  (pick 2 random via GSI2)
+    // -------- GET /api/battle --------
     if (method === "GET" && path.endsWith("/api/battle")) {
-      const all = await ddb.send(
+      const res = await ddb.send(
         new QueryCommand({
           TableName: TABLE,
           IndexName: "GSI2",
@@ -48,128 +49,135 @@ export const handler = async (event) => {
           ExpressionAttributeNames: { "#n": "name" },
         })
       );
-      const companies = all.Items || [];
+      const companies = res.Items || [];
       if (companies.length < 2) return json(400, { error: "Not enough companies" });
       const [a, b] = pickTwo(companies);
       return json(200, [a, b]);
     }
 
-    // POST /api/vote  { winnerId, loserId }
-    if (method === "POST" && path.endsWith("/api/vote")) {
-      const { winnerId, loserId } = body || {};
-      if (!winnerId || !loserId) return json(400, { error: "Missing winnerId or loserId" });
+    // -------- POST /api/vote --------
+     if (method === "POST" && path.endsWith("/api/vote")) {
 
-      const { key: rlKey } = getDeviceOrIp(event);
-      const userAgent = event.headers?.["user-agent"] || event.headers?.["User-Agent"] || "";
-      const now = Date.now();
+      try {
+        const { winnerId, loserId } = body;
+        if (!winnerId || !loserId) return json(400, { error: "Missing winnerId or loserId" });
 
-      // Rate limit query
-      const since = now - RATE_LIMIT_WINDOW_MS;
-      const rate = await ddb.send(
-        new QueryCommand({
-          TableName: TABLE,
-          KeyConditionExpression: "#pk = :pk AND #sk >= :since",
-          ExpressionAttributeNames: { "#pk": "pk", "#sk": "sk" },
-          ExpressionAttributeValues: { ":pk": rlKey, ":since": since },
-          Select: "COUNT",
-        })
-      );
-      if ((rate.Count || 0) >= RATE_LIMIT_MAX) {
-        return json(429, { error: "Too many votes. Please wait before voting again." });
-      }
+        const { key: rlKey } = getDeviceOrIp(event);
+        const userAgent = event.headers?.["user-agent"] || event.headers?.["User-Agent"] || "";
+        const now = Date.now();
 
-      // Load current scores (sk: 0 for companies)
-      const bg = await ddb.send(
-        new BatchGetCommand({
-          RequestItems: {
-            [TABLE]: {
-              Keys: [
-                { pk: `COMPANY#${winnerId}`, sk: 0 },
-                { pk: `COMPANY#${loserId}`, sk: 0 },
-              ],
-              ProjectionExpression: "id, #n, logo, score",
-              ExpressionAttributeNames: { "#n": "name" },
+        // 1️⃣ Rate limiting
+        const since = now - RATE_LIMIT_WINDOW_MS;
+        const rateQuery = await ddb.send(
+          new QueryCommand({
+            TableName: TABLE,
+            KeyConditionExpression: "#pk = :pk AND #sk >= :since",
+            ExpressionAttributeNames: { "#pk": "pk", "#sk": "sk" },
+            ExpressionAttributeValues: { ":pk": rlKey, ":since": since },
+            Select: "COUNT",
+          })
+        );
+        if ((rateQuery.Count || 0) >= RATE_LIMIT_MAX) {
+          return json(429, { error: "Too many votes" });
+        }
+
+        // 2️⃣ Load current scores
+        
+        const batchResponse = await ddb.send(
+          new BatchGetCommand({
+            RequestItems: {
+              [TABLE]: {
+                Keys: [
+                  { pk: `COMPANY#${winnerId}`, sk: 0 },
+                  { pk: `COMPANY#${loserId}`, sk: 0 },
+                ],
+                ProjectionExpression: "pk, sk, id, #n, logo, score",
+                ExpressionAttributeNames: { "#n": "name" },
+              },
             },
-          },
-        })
-      );
-      const items = bg.Responses?.[TABLE] || [];
-      const map = new Map(items.map((i) => [`${i.pk}|${i.sk}`, i]));
-      const winner = map.get(`COMPANY#${winnerId}|0`);
-      const loser  = map.get(`COMPANY#${loserId}|0`);
-      if (!winner || !loser) return json(400, { error: "Invalid IDs" });
+          })
+        );
 
-      // Elo
-      const ws = winner.score ?? 500;
-      const ls = loser.score ?? 500;
-      const expectedWinner = 1 / (1 + Math.pow(10, (ls - ws) / 400));
-      const k = 12;
-      const change = Math.round(k * (1 - expectedWinner));
-      const newWinner = Math.max(ws + change, 100);
-      const newLoser  = Math.max(ls - Math.floor(change * 0.5), 100);
 
-      // Transaction: record vote + update scores
-      const ttl = Math.floor((now + 90 * 24 * 3600 * 1000) / 1000);
-      await ddb.send(
-        new TransactWriteCommand({
-          TransactItems: [
-            {
-              Put: {
-                TableName: TABLE,
-                Item: {
-                  pk: rlKey, // DEVICE#<uuid> or IP#<ip>
-                  sk: now,
-                  entity: "VOTE",
-                  winner_id: winnerId,
-                  loser_id: loserId,
-                  user_agent: userAgent,
-                  created_at: now,
-                  ttl,
+        const items = batchResponse.Responses?.[TABLE] || [];
+
+        const companyMap = new Map(items.map((i) => [`${i.pk}|${i.sk}`, i]));
+        const winner = companyMap.get(`COMPANY#${winnerId}|0`);
+        const loser = companyMap.get(`COMPANY#${loserId}|0`);
+
+        if (!winner || !loser) {
+          console.error("Invalid IDs:", { winnerId, loserId, items });
+          return json(400, { 
+            error: "Invalid IDs", 
+          });
+
+        }
+
+
+        // 3️⃣ Calculate Elo
+        const winnerScore = winner.score ?? 500;
+        const loserScore = loser.score ?? 500;
+        const expectedWinner = 1 / (1 + Math.pow(10, (loserScore - winnerScore) / 400));
+        const kFactor = 12;
+        const scoreDelta = Math.round(kFactor * (1 - expectedWinner));
+        const newWinnerScore = Math.max(winnerScore + scoreDelta, 100);
+        const newLoserScore = Math.max(loserScore - Math.floor(scoreDelta * 0.5), 100);
+        const ttl = Math.floor((now + 90 * 24 * 3600 * 1000) / 1000);
+
+        // 4️⃣ Write transaction
+        await ddb.send(
+          new TransactWriteCommand({
+            TransactItems: [
+              {
+                Put: {
+                  TableName: TABLE,
+                  Item: {
+                    pk: rlKey,
+                    sk: now,
+                    entity: "VOTE",
+                    winner_id: winnerId,
+                    loser_id: loserId,
+                    user_agent: userAgent,
+                    created_at: now,
+                    ttl,
+                  },
                 },
               },
-            },
-            {
-              Update: {
-                TableName: TABLE,
-                Key: { pk: `COMPANY#${winnerId}`, sk: 0 },
-                UpdateExpression: "SET #s = :nw, gsi1pk = :lb, gsi1sk = :nw",
-                ExpressionAttributeNames: { "#s": "score" },
-                ExpressionAttributeValues: { ":nw": newWinner, ":lb": "LEADERBOARD" },
+              {
+                Update: {
+                  TableName: TABLE,
+                  Key: { pk: `COMPANY#${winnerId}`, sk: 0 },
+                  UpdateExpression: "SET #s = :newScore, gsi1pk = :lb, gsi1sk = :newScore",
+                  ExpressionAttributeNames: { "#s": "score" },
+                  ExpressionAttributeValues: { ":newScore": newWinnerScore, ":lb": "LEADERBOARD" },
+                },
               },
-            },
-            {
-              Update: {
-                TableName: TABLE,
-                Key: { pk: `COMPANY#${loserId}`, sk: 0 },
-                UpdateExpression: "SET #s = :nl, gsi1pk = :lb, gsi1sk = :nl",
-                ExpressionAttributeNames: { "#s": "score" },
-                ExpressionAttributeValues: { ":nl": newLoser, ":lb": "LEADERBOARD" },
+              {
+                Update: {
+                  TableName: TABLE,
+                  Key: { pk: `COMPANY#${loserId}`, sk: 0 },
+                  UpdateExpression: "SET #s = :newScore, gsi1pk = :lb, gsi1sk = :newScore",
+                  ExpressionAttributeNames: { "#s": "score" },
+                  ExpressionAttributeValues: { ":newScore": newLoserScore, ":lb": "LEADERBOARD" },
+                },
               },
-            },
-          ],
-        })
-      );
+            ],
+          })
+        );
 
-      // Pick next opponent (not winner or loser)
-      const nextOpponent = await pickRandomOpponentExcluding([winnerId, loserId]);
-
-      return json(200, {
-        success: true,
-        scoreChange: change,
-        winnerScore: newWinner,
-        loserScore: newLoser,
-        nextOpponent: nextOpponent || null,
-      });
-    }
-
-    // GET /api/stats
+        const nextOpponent = await pickRandomOpponentExcluding([winnerId, loserId]);
+        return json(200, { success: true, scoreChange: scoreDelta, winnerScore: newWinnerScore, loserScore: newLoserScore, nextOpponent });
+      }
+      catch (err) {
+        console.error("❌ Error in /api/vote", err);
+        return json(500, { error: "Could not process vote", details: err.message });
+      }
+  }
+      
+    // -------- GET /api/stats --------
     if (method === "GET" && path.endsWith("/api/stats")) {
       const votes = await ddb.send(
-        new ScanCommand({
-          TableName: TABLE,
-          Select: "COUNT",
-          FilterExpression: "attribute_not_exists(gsi1pk)", // votes have no gsi1pk
-        })
+        new ScanCommand({ TableName: TABLE, Select: "COUNT", FilterExpression: "attribute_not_exists(gsi1pk)" })
       );
       const comps = await ddb.send(
         new QueryCommand({
@@ -183,15 +191,15 @@ export const handler = async (event) => {
       return json(200, { totalVotes: votes.Count || 0, totalCompanies: comps.Count || 0 });
     }
 
-    // Root
+    // -------- Root --------
     if (method === "GET" && (path === "/" || path === "")) {
       return html(200, "<h1>FAANGArena API</h1><p>Call /api/* endpoints from your site.</p>");
     }
 
     return json(404, { error: "Not found" });
-  } catch (e) {
-    console.error(e);
-    return json(500, { error: "Something went wrong!" });
+  } catch (err) {
+    console.error(err);
+    return json(500, { error: "Something went wrong!", details: err.message });
   }
 };
 
